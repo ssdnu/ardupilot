@@ -5,11 +5,11 @@ name: Build & Release FTS ArduPilot Firmware
 #   2. Actions 탭에서 수동 실행 (workflow_dispatch) 하거나
 #      v4.6.2 태그를 push 하면 자동 실행됨
 #   3. 완료되면 Releases > v4.6.2 에 아래 파일들이 올라감 (재실행 시 덮어씀)
-#        FTS_FC_V5_ArduCopter.apj / ArduPlane.apj / ArduRover.apj / ArduSub.apj
-#        FTS_FC_V5_EXT_COMPASS_ArduCopter.apj / ArduPlane.apj / ArduRover.apj / ArduSub.apj
-#        FTS-FC-V7_ArduCopter.apj / ArduPlane.apj / ArduRover.apj / ArduSub.apj
-#        FTS_FC_V5_bootloader.bin
-#        FTS-FC-V7_bootloader.bin
+#        fts-fc-v5-arducopter.apj / arduplane.apj / ardurover.apj / ardusub.apj
+#        fts-fc-v5-ext-compass-arducopter.apj / arduplane.apj / ardurover.apj / ardusub.apj
+#        fts-fc-v7-arducopter.apj / arduplane.apj / ardurover.apj / ardusub.apj
+#        fts-fc-v5-bootloader.bin
+#        fts-fc-v7-bootloader.bin
 #
 #   매뉴얼 PDF에는 releases/latest 링크를 넣으면 됨:
 #     https://github.com/ssdnu/ardupilot/releases/latest
@@ -37,9 +37,9 @@ jobs:
       fail-fast: false
       matrix:
         board:
-          - FTS_FC_V5
-          - FTS_FC_V5_EXT_COMPASS
-          - FTS-FC-V7
+          - { hwdef: FTS_FC_V5,             prefix: fts-fc-v5 }
+          - { hwdef: FTS_FC_V5_EXT_COMPASS, prefix: fts-fc-v5-ext-compass }
+          - { hwdef: FTS-FC-V7,             prefix: fts-fc-v7 }
         vehicle:
           - { target: copter, bin: arducopter, label: ArduCopter }
           - { target: plane,  bin: arduplane,  label: ArduPlane }
@@ -58,7 +58,7 @@ jobs:
 
       - name: Configure board
         run: |
-          ./waf configure --board "${{ matrix.board }}"
+          ./waf configure --board "${{ matrix.board.hwdef }}"
 
       - name: Build ${{ matrix.vehicle.label }}
         run: |
@@ -67,18 +67,18 @@ jobs:
       - name: Locate build output
         id: locate
         run: |
-          APJ=$(find build/${{ matrix.board }}/bin -name "${{ matrix.vehicle.bin }}.apj")
+          APJ=$(find build/${{ matrix.board.hwdef }}/bin -name "${{ matrix.vehicle.bin }}.apj")
           echo "apj_path=$APJ" >> "$GITHUB_OUTPUT"
 
       - name: Rename output
         run: |
           mkdir -p out
-          cp "${{ steps.locate.outputs.apj_path }}" "out/${{ matrix.board }}_${{ matrix.vehicle.label }}.apj"
+          cp "${{ steps.locate.outputs.apj_path }}" "out/${{ matrix.board.prefix }}-${{ matrix.vehicle.bin }}.apj"
 
       - name: Upload build artifact (between jobs)
         uses: actions/upload-artifact@v4
         with:
-          name: firmware-${{ matrix.board }}-${{ matrix.vehicle.target }}
+          name: firmware-${{ matrix.board.hwdef }}-${{ matrix.vehicle.target }}
           path: out/*.apj
           retention-days: 7
 
@@ -92,8 +92,8 @@ jobs:
       fail-fast: false
       matrix:
         board:
-          - { hwdef: FTS_FC_V5,  asset: FTS_FC_V5_bootloader }
-          - { hwdef: FTS-FC-V7,  asset: FTS-FC-V7_bootloader }
+          - { hwdef: FTS_FC_V5,  asset: fts-fc-v5-bootloader }
+          - { hwdef: FTS-FC-V7,  asset: fts-fc-v7-bootloader }
 
     steps:
       - name: Checkout (with submodules)
@@ -163,7 +163,7 @@ jobs:
 
             - 소스 커밋: ${{ steps.vars.outputs.sha_short }}
             - 빌드 일시: ${{ github.event.repository.updated_at }}
-            - 보드: FTS_FC_V5, FTS_FC_V5_EXT_COMPASS, FTS-FC-V7
+            - 보드: fts-fc-v5, fts-fc-v5-ext-compass, fts-fc-v7
             - FTS-FC-V7 은 부트로더 board ID 2001 (구 부트로더 1010 보드는 부트로더 재플래싱 필요)
 
             ※ 반드시 이 릴리스의 파일만 사용하십시오. 다른 출처의 펌웨어를 올리면 보드가 정상 동작하지 않을 수 있습니다.
