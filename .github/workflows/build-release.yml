@@ -170,5 +170,5 @@ jobs:
           artifacts: "release-assets/*"
           allowUpdates: true
           replacesArtifacts: true
-          removeArtifacts: false
+          removeArtifacts: true
           makeLatest: true
