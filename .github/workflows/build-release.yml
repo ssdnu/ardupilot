@@ -1,14 +1,14 @@
-name: Build & Release FTS ArduCopter Firmware
+name: Build & Release FTS ArduPilot Firmware
 
 # 사용법:
 #   1. 이 파일을 ssdnu/ardupilot 레포의 .github/workflows/build-release.yml 로 저장
 #   2. Actions 탭에서 수동 실행 (workflow_dispatch) 하거나
 #      v4.6.2 태그를 push 하면 자동 실행됨
 #   3. 완료되면 Releases > v4.6.2 에 아래 파일들이 올라감 (재실행 시 덮어씀)
-#        FTS-FC-V5_ArduCopter.apj
-#        FTS-FC-V5_ArduCopter_ExtCompass.apj
-#        FTS-FC-V5_bootloader.bin
-#        FTS-FC-V7_ArduCopter.apj
+#        FTS_FC_V5_ArduCopter.apj / ArduPlane.apj / ArduRover.apj / ArduSub.apj
+#        FTS_FC_V5_EXT_COMPASS_ArduCopter.apj / ArduPlane.apj / ArduRover.apj / ArduSub.apj
+#        FTS-FC-V7_ArduCopter.apj / ArduPlane.apj / ArduRover.apj / ArduSub.apj
+#        FTS_FC_V5_bootloader.bin
 #        FTS-FC-V7_bootloader.bin
 #
 #   매뉴얼 PDF에는 releases/latest 링크를 넣으면 됨:
@@ -37,9 +37,14 @@ jobs:
       fail-fast: false
       matrix:
         board:
-          - { hwdef: FTS_FC_V5,              asset: FTS-FC-V5_ArduCopter }
-          - { hwdef: FTS_FC_V5_EXT_COMPASS,  asset: FTS-FC-V5_ArduCopter_ExtCompass }
-          - { hwdef: FTS-FC-V7,              asset: FTS-FC-V7_ArduCopter }
+          - FTS_FC_V5
+          - FTS_FC_V5_EXT_COMPASS
+          - FTS-FC-V7
+        vehicle:
+          - { target: copter, bin: arducopter, label: ArduCopter }
+          - { target: plane,  bin: arduplane,  label: ArduPlane }
+          - { target: rover,  bin: ardurover,  label: ArduRover }
+          - { target: sub,    bin: ardusub,    label: ArduSub }
 
     steps:
       - name: Checkout (with submodules)
@@ -53,27 +58,27 @@ jobs:
 
       - name: Configure board
         run: |
-          ./waf configure --board "${{ matrix.board.hwdef }}"
+          ./waf configure --board "${{ matrix.board }}"
 
-      - name: Build ArduCopter
+      - name: Build ${{ matrix.vehicle.label }}
         run: |
-          ./waf copter
+          ./waf ${{ matrix.vehicle.target }}
 
       - name: Locate build output
         id: locate
         run: |
-          APJ=$(find build/${{ matrix.board.hwdef }}/bin -name "arducopter.apj")
+          APJ=$(find build/${{ matrix.board }}/bin -name "${{ matrix.vehicle.bin }}.apj")
           echo "apj_path=$APJ" >> "$GITHUB_OUTPUT"
 
       - name: Rename output
         run: |
           mkdir -p out
-          cp "${{ steps.locate.outputs.apj_path }}" "out/${{ matrix.board.asset }}.apj"
+          cp "${{ steps.locate.outputs.apj_path }}" "out/${{ matrix.board }}_${{ matrix.vehicle.label }}.apj"
 
       - name: Upload build artifact (between jobs)
         uses: actions/upload-artifact@v4
         with:
-          name: firmware-${{ matrix.board.hwdef }}
+          name: firmware-${{ matrix.board }}-${{ matrix.vehicle.target }}
           path: out/*.apj
           retention-days: 7
 
@@ -87,7 +92,7 @@ jobs:
       fail-fast: false
       matrix:
         board:
-          - { hwdef: FTS_FC_V5,  asset: FTS-FC-V5_bootloader }
+          - { hwdef: FTS_FC_V5,  asset: FTS_FC_V5_bootloader }
           - { hwdef: FTS-FC-V7,  asset: FTS-FC-V7_bootloader }
 
     steps:
@@ -152,9 +157,9 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           tag: ${{ env.RELEASE_TAG }}
-          name: "FTS ArduCopter Firmware ${{ env.RELEASE_TAG }}"
+          name: "FTS ArduPilot Firmware ${{ env.RELEASE_TAG }}"
           body: |
-            ArduCopter 4.6.2 기반 FTS 커스텀 펌웨어
+            ArduPilot 4.6.2 기반 FTS 커스텀 펌웨어 (ArduCopter / ArduPlane / ArduRover / ArduSub)
 
             - 소스 커밋: ${{ steps.vars.outputs.sha_short }}
             - 빌드 일시: ${{ github.event.repository.updated_at }}
