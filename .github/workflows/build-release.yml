@@ -20,6 +20,9 @@ on:
     tags:
       - "v*"
 
+permissions:
+  contents: write
+
 env:
   RELEASE_TAG: v4.6.2
 
