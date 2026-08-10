@@ -4,15 +4,18 @@ name: Build & Release FTS ArduPilot Firmware
 #   1. 이 파일을 ssdnu/ardupilot 레포의 .github/workflows/build-release.yml 로 저장
 #   2. Actions 탭에서 수동 실행 (workflow_dispatch) 하거나
 #      v4.6.2 태그를 push 하면 자동 실행됨
-#   3. 완료되면 Releases > v4.6.2 에 아래 파일들이 올라감 (재실행 시 덮어씀)
-#        v5-arducopter.apj / v5-arduplane.apj / v5-ardurover.apj / v5-ardusub.apj
-#        v5-ext-compass-arducopter.apj / v5-ext-compass-arduplane.apj / v5-ext-compass-ardurover.apj / v5-ext-compass-ardusub.apj
-#        v7-arducopter.apj / v7-arduplane.apj / v7-ardurover.apj / v7-ardusub.apj
-#        v5-bootloader.bin
-#        v7-bootloader.bin
+#   3. 완료되면 릴리스 2개가 각각 생성됨 (재실행 시 각각 덮어씀)
+#        Releases > v4.6.2-v5  (v5, v5-ext-compass 보드용)
+#          v5-arducopter.apj / v5-arduplane.apj / v5-ardurover.apj / v5-ardusub.apj
+#          v5-ext-compass-arducopter.apj / v5-ext-compass-arduplane.apj / v5-ext-compass-ardurover.apj / v5-ext-compass-ardusub.apj
+#          v5-bootloader.bin
+#        Releases > v4.6.2-v7  (v7 보드용)
+#          v7-arducopter.apj / v7-arduplane.apj / v7-ardurover.apj / v7-ardusub.apj
+#          v7-bootloader.bin
 #
-#   매뉴얼 PDF에는 releases/latest 링크를 넣으면 됨:
-#     https://github.com/ssdnu/ardupilot/releases/latest
+#   매뉴얼 PDF에는 보드별로 아래 링크를 넣으면 됨:
+#     V5: https://github.com/ssdnu/ardupilot/releases/tag/v4.6.2-v5
+#     V7: https://github.com/ssdnu/ardupilot/releases/tag/v4.6.2-v7
 
 on:
   workflow_dispatch:
@@ -24,7 +27,8 @@ permissions:
   contents: write
 
 env:
-  RELEASE_TAG: v4.6.2
+  RELEASE_TAG_V5: v4.6.2-v5
+  RELEASE_TAG_V7: v4.6.2-v7
 
 jobs:
   build:
@@ -131,7 +135,7 @@ jobs:
           path: out/*.bin
           retention-days: 7
 
-  release:
+  release-v5:
     needs: [build, build-bootloader]
     runs-on: ubuntu-22.04
     steps:
@@ -143,32 +147,73 @@ jobs:
         with:
           path: artifacts
 
-      - name: Flatten artifacts
+      - name: Flatten V5 artifacts
         run: |
-          mkdir -p release-assets
-          find artifacts -type f \( -name "*.apj" -o -name "*.bin" \) -exec cp {} release-assets/ \;
-          ls -la release-assets
+          mkdir -p release-assets-v5
+          find artifacts -type f \( -name "v5-*.apj" -o -name "v5-*.bin" \) -exec cp {} release-assets-v5/ \;
+          ls -la release-assets-v5
 
       - name: Get short commit hash
         id: vars
         run: echo "sha_short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
-      - name: Create / update release
+      - name: Create / update V5 release
         uses: ncipollo/release-action@v1
         with:
-          tag: ${{ env.RELEASE_TAG }}
-          name: "Ardupilot release (${{ env.RELEASE_TAG }} dev)"
+          tag: ${{ env.RELEASE_TAG_V5 }}
+          name: "Ardupilot release (${{ env.RELEASE_TAG_V5 }} dev)"
           body: |
-            ArduPilot 4.6.2 기반 FTS 커스텀 펌웨어 (ArduCopter / ArduPlane / ArduRover / ArduSub)
+            ArduPilot 4.6.2 기반 FTS FC-V5 커스텀 펌웨어 (ArduCopter / ArduPlane / ArduRover / ArduSub)
 
             - 소스 커밋: ${{ steps.vars.outputs.sha_short }}
             - 빌드 일시: ${{ github.event.repository.updated_at }}
-            - 보드: v5, v5-ext-compass, v7
-            - FTS-FC-V7 은 부트로더 board ID 2001 (구 부트로더 1010 보드는 부트로더 재플래싱 필요)
+            - 보드: FTS_FC_V5, FTS_FC_V5_EXT_COMPASS
 
             ※ 반드시 이 릴리스의 파일만 사용하십시오. 다른 출처의 펌웨어를 올리면 보드가 정상 동작하지 않을 수 있습니다.
-          artifacts: "release-assets/*"
+          artifacts: "release-assets-v5/*"
           allowUpdates: true
           replacesArtifacts: true
           removeArtifacts: true
-          makeLatest: true
+          makeLatest: false
+
+  release-v7:
+    needs: [build, build-bootloader]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout (for commit info)
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Flatten V7 artifacts
+        run: |
+          mkdir -p release-assets-v7
+          find artifacts -type f \( -name "v7-*.apj" -o -name "v7-*.bin" \) -exec cp {} release-assets-v7/ \;
+          ls -la release-assets-v7
+
+      - name: Get short commit hash
+        id: vars
+        run: echo "sha_short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Create / update V7 release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ env.RELEASE_TAG_V7 }}
+          name: "Ardupilot release (${{ env.RELEASE_TAG_V7 }} dev)"
+          body: |
+            ArduPilot 4.6.2 기반 FTS FC-V7 커스텀 펌웨어 (ArduCopter / ArduPlane / ArduRover / ArduSub)
+
+            - 소스 커밋: ${{ steps.vars.outputs.sha_short }}
+            - 빌드 일시: ${{ github.event.repository.updated_at }}
+            - 보드: FTS-FC-V7
+            - 부트로더 board ID 2001 (구 부트로더 1010 보드는 부트로더 재플래싱 필요)
+
+            ※ 반드시 이 릴리스의 파일만 사용하십시오. 다른 출처의 펌웨어를 올리면 보드가 정상 동작하지 않을 수 있습니다.
+          artifacts: "release-assets-v7/*"
+          allowUpdates: true
+          replacesArtifacts: true
+          removeArtifacts: true
+          makeLatest: false
